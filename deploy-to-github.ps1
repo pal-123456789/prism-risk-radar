@@ -11,7 +11,12 @@
  Safe to re-run: if the repo/remote already exists it just pushes again.
 =============================================================================
 #>
-$ErrorActionPreference = "Stop"
+# NOTE: 'Continue', not 'Stop', on purpose. Native tools like git write
+# informational text to stderr (e.g. "No such remote 'origin'"), and Windows
+# PowerShell 5.1 promotes that to a FATAL error under 'Stop' even though the
+# command is fine. We check $LASTEXITCODE explicitly after each native call
+# (see Check()), so real failures are still caught.
+$ErrorActionPreference = "Continue"
 
 $RepoName    = "prism-risk-radar"
 $Visibility  = "public"          # change to "private" if you prefer

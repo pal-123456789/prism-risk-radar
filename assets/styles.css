@@ -342,7 +342,7 @@ body {
 /* --------------------------------------------------------- icon button ----- */
 .icon-btn {
   display: inline-flex; align-items: center; gap: 7px;
-  background: transparent; color: var(--text); cursor: pointer;
+  background: transparent; color: var(--text); cursor: pointer; text-decoration: none;
   border: 1px solid var(--line); border-radius: var(--r-md);
   padding: 9px 13px; font-family: var(--font-body); font-size: .86rem; font-weight: 600;
   transition: background .15s, border-color .15s, color .15s;

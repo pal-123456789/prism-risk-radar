@@ -3,7 +3,7 @@
  * Cache-first for our own assets so the tool keeps working with no network
  * (which is also the privacy promise: it never needed the network anyway).
  */
-var CACHE = "prism-v5";
+var CACHE = "prism-v6";
 var SHELL = [
   "./",
   "./index.html",
