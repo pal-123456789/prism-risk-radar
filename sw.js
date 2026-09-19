@@ -3,12 +3,20 @@
  * Cache-first for our own assets so the tool keeps working with no network
  * (which is also the privacy promise: it never needed the network anyway).
  */
-var CACHE = "prism-v8";
+var CACHE = "prism-v9";
 var SHELL = [
   "./",
   "./index.html",
   "./landing.html",
   "./assets/styles.css",
+  "./assets/fonts.css",
+  "./assets/fonts/space-grotesk-latin-400-normal.woff2",
+  "./assets/fonts/space-grotesk-latin-500-normal.woff2",
+  "./assets/fonts/space-grotesk-latin-600-normal.woff2",
+  "./assets/fonts/space-grotesk-latin-700-normal.woff2",
+  "./assets/fonts/ibm-plex-mono-latin-400-normal.woff2",
+  "./assets/fonts/ibm-plex-mono-latin-500-normal.woff2",
+  "./assets/fonts/ibm-plex-mono-latin-600-normal.woff2",
   "./assets/landing.js",
   "./src/parser.js",
   "./src/tokenizer.js",
@@ -28,9 +36,17 @@ var SHELL = [
 ];
 
 self.addEventListener("install", function (e) {
-  e.waitUntil(caches.open(CACHE).then(function (c) { return c.addAll(SHELL); }).then(function () {
-    return self.skipWaiting();
-  }));
+  // Cache each shell file independently. addAll() is atomic — one missing file
+  // (e.g. a font not yet fetched by fetch-fonts.ps1) would fail the WHOLE
+  // install and the worker would never take over. Per-file adds degrade
+  // gracefully: whatever is present gets cached, the rest is fetched live.
+  e.waitUntil(
+    caches.open(CACHE).then(function (c) {
+      return Promise.all(SHELL.map(function (url) {
+        return c.add(url).catch(function () { /* file absent — skip, don't abort */ });
+      }));
+    }).then(function () { return self.skipWaiting(); })
+  );
 });
 
 self.addEventListener("activate", function (e) {

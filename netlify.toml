@@ -9,7 +9,8 @@
     X-Content-Type-Options = "nosniff"
     X-Frame-Options = "DENY"
     Referrer-Policy = "no-referrer"
-    # PRism never talks to a third-party origin. connect-src 'self' allows only
-    # same-origin requests — needed so the service worker can precache the app
-    # shell for offline use; there is no code path that fetches anything else.
-    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'"
+    # PRism never talks to a third-party origin — fonts are self-hosted, and
+    # every directive is locked to 'self'. connect-src 'self' allows only
+    # same-origin requests (the service worker precaches the app shell for
+    # offline use); there is no code path that fetches anything else.
+    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline'; font-src 'self'; img-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'"
