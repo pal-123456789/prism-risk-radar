@@ -1,6 +1,6 @@
 {
   "$schema": "https://openapi.vercel.sh/vercel.json",
-  "cleanUrls": true,
+  "comment": "cleanUrls intentionally OFF: it 308-redirects /x.html -> /x, and the service worker precaches .html paths + serves cache-first. A cached redirected response fails navigation requests (redirect mode != follow). Serving .html directly keeps precache URLs == served URLs.",
   "headers": [
     {
       "source": "/(.*)",

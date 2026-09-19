@@ -3,7 +3,7 @@
  * Cache-first for our own assets so the tool keeps working with no network
  * (which is also the privacy promise: it never needed the network anyway).
  */
-var CACHE = "prism-v6";
+var CACHE = "prism-v7";
 var SHELL = [
   "./",
   "./index.html",
@@ -42,17 +42,51 @@ self.addEventListener("activate", function (e) {
   );
 });
 
+// A response that came from following a redirect is flagged redirected:true,
+// and the browser REFUSES to use it for a navigation (redirect mode != follow),
+// surfacing as "a redirected response was used...". Rebuild such a response into
+// a clean, non-redirected one before it is ever cached or returned.
+function clean(res) {
+  if (!res || !res.redirected) return Promise.resolve(res);
+  return res.clone().blob().then(function (body) {
+    return new Response(body, { status: res.status, statusText: res.statusText, headers: res.headers });
+  });
+}
+
 self.addEventListener("fetch", function (e) {
-  if (e.request.method !== "GET") return;
+  var req = e.request;
+  if (req.method !== "GET") return;
+
+  // Navigations: network-first, so a fresh page can't be shadowed by a stale
+  // cached shell; fall back to cache (then index.html) only when offline.
+  if (req.mode === "navigate") {
+    e.respondWith(
+      fetch(req).then(function (res) {
+        return clean(res).then(function (safe) {
+          if (safe && safe.ok && req.url.indexOf(self.location.origin) === 0) {
+            var copy = safe.clone();
+            caches.open(CACHE).then(function (c) { c.put(req, copy); });
+          }
+          return safe;
+        });
+      }).catch(function () {
+        return caches.match(req).then(function (hit) { return hit || caches.match("./index.html"); });
+      })
+    );
+    return;
+  }
+
+  // Everything else: cache-first for speed + offline.
   e.respondWith(
-    caches.match(e.request).then(function (hit) {
-      return hit || fetch(e.request).then(function (res) {
-        // Cache same-origin successful responses for next time.
-        if (res && res.ok && e.request.url.indexOf(self.location.origin) === 0) {
-          var copy = res.clone();
-          caches.open(CACHE).then(function (c) { c.put(e.request, copy); });
-        }
-        return res;
+    caches.match(req).then(function (hit) {
+      return hit || fetch(req).then(function (res) {
+        return clean(res).then(function (safe) {
+          if (safe && safe.ok && req.url.indexOf(self.location.origin) === 0) {
+            var copy = safe.clone();
+            caches.open(CACHE).then(function (c) { c.put(req, copy); });
+          }
+          return safe;
+        });
       }).catch(function () { return caches.match("./index.html"); });
     })
   );
