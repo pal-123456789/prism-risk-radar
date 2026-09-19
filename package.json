@@ -1,0 +1,30 @@
+{
+  "name": "prism-risk-radar",
+  "version": "1.0.0",
+  "description": "Offline, privacy-first pull-request risk radar. Paste a git diff, get an instant explainable risk score. Runs 100% in the browser.",
+  "type": "commonjs",
+  "bin": {
+    "prism": "bin/prism.js"
+  },
+  "scripts": {
+    "test": "node tests/analyzer.test.js && node tests/cli.test.js",
+    "test:engine": "node tests/analyzer.test.js",
+    "test:cli": "node tests/cli.test.js",
+    "analyze": "node bin/prism.js",
+    "start": "npx --yes serve . -l 5173",
+    "serve": "python -m http.server 5173"
+  },
+  "files": [
+    "index.html",
+    "assets",
+    "src",
+    "bin",
+    "icon.svg",
+    "manifest.webmanifest",
+    "sw.js",
+    "prism.schema.json"
+  ],
+  "keywords": ["code-review", "git", "diff", "risk", "security", "pwa", "offline", "developer-tools"],
+  "license": "MIT",
+  "private": true
+}

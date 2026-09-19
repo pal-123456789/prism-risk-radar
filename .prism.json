@@ -1,0 +1,10 @@
+{
+  "$schema": "./prism.schema.json",
+  "version": 1,
+  "disabled": {},
+  "severity": {},
+  "gate": {
+    "failOn": "critical",
+    "maxScore": 85
+  }
+}

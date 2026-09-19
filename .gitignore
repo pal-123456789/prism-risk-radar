@@ -1,0 +1,21 @@
+# dependencies (none required — this app is dependency-free)
+node_modules/
+npm-debug.log*
+yarn-error.log*
+
+# editor / OS
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/
+*.swp
+
+# local env / secrets — never commit these (PRism would flag you!)
+.env
+.env.*
+*.pem
+*.key
+
+# build output (n/a, kept for safety)
+dist/
+build/

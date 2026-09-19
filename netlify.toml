@@ -1,0 +1,15 @@
+# PRism is a static, dependency-free app — no build step needed.
+[build]
+  publish = "."
+  command = ""
+
+[[headers]]
+  for = "/*"
+  [headers.values]
+    X-Content-Type-Options = "nosniff"
+    X-Frame-Options = "DENY"
+    Referrer-Policy = "no-referrer"
+    # PRism never talks to a third-party origin. connect-src 'self' allows only
+    # same-origin requests — needed so the service worker can precache the app
+    # shell for offline use; there is no code path that fetches anything else.
+    Content-Security-Policy = "default-src 'self'; style-src 'self' 'unsafe-inline' https://fonts.googleapis.com; font-src https://fonts.gstatic.com; img-src 'self' data:; script-src 'self'; worker-src 'self'; connect-src 'self'"

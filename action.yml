@@ -1,0 +1,131 @@
+name: "PRism Risk Radar"
+description: "Offline, zero-dependency pull-request risk scoring. Runs the PRism engine on the PR diff, writes SARIF for GitHub code scanning, and can gate the merge — no code ever leaves the runner."
+author: "PRism"
+branding:
+  icon: "shield"
+  color: "purple"
+
+inputs:
+  base-ref:
+    description: "Git ref to diff against. On pull_request, pass the base SHA. If empty, falls back to HEAD~1."
+    required: false
+    default: ""
+  diff-file:
+    description: "Analyze this pre-computed diff file instead of running git diff."
+    required: false
+    default: ""
+  config:
+    description: "Path to a .prism.json config. If empty, PRism auto-discovers one upward from the repo root."
+    required: false
+    default: ""
+  fail-on:
+    description: "Fail the job if any signal is at or above this severity (info|low|medium|high|critical). Overrides the config gate."
+    required: false
+    default: ""
+  max-score:
+    description: "Fail the job if the risk score exceeds this value (0-100). Overrides the config gate."
+    required: false
+    default: ""
+  sarif-file:
+    description: "Where to write the SARIF report."
+    required: false
+    default: "prism.sarif"
+  upload-sarif:
+    description: "Upload the SARIF report to GitHub code scanning (needs security-events: write)."
+    required: false
+    default: "true"
+
+outputs:
+  score:
+    description: "Overall risk score (0-100)."
+    value: ${{ steps.scan.outputs.score }}
+  tier:
+    description: "Risk tier (Low | Moderate | High | Critical)."
+    value: ${{ steps.scan.outputs.tier }}
+  gate:
+    description: "Gate verdict: passed | failed."
+    value: ${{ steps.scan.outputs.gate }}
+  sarif:
+    description: "Path to the written SARIF file."
+    value: ${{ steps.scan.outputs.sarif }}
+
+runs:
+  using: composite
+  steps:
+    - name: Compute diff
+      id: diff
+      shell: bash
+      env:
+        BASE_REF: ${{ inputs.base-ref }}
+        DIFF_FILE: ${{ inputs.diff-file }}
+      run: |
+        set -euo pipefail
+        OUT="${RUNNER_TEMP:-/tmp}/prism.diff"
+        if [ -n "${DIFF_FILE}" ]; then
+          cp "${DIFF_FILE}" "${OUT}"
+        elif [ -n "${BASE_REF}" ]; then
+          git diff "${BASE_REF}...HEAD" > "${OUT}" 2>/dev/null || git diff "${BASE_REF}" HEAD > "${OUT}"
+        else
+          git diff HEAD~1 HEAD > "${OUT}" 2>/dev/null || git diff HEAD > "${OUT}" || true
+        fi
+        echo "file=${OUT}" >> "$GITHUB_OUTPUT"
+        echo "PRism: analyzing $(wc -l < "${OUT}") diff lines."
+
+    - name: PRism scan
+      id: scan
+      shell: bash
+      env:
+        DIFF: ${{ steps.diff.outputs.file }}
+        SARIF: ${{ inputs.sarif-file }}
+        CONFIG: ${{ inputs.config }}
+        FAIL_ON: ${{ inputs.fail-on }}
+        MAX_SCORE: ${{ inputs.max-score }}
+      run: |
+        set -uo pipefail
+        CLI="${GITHUB_ACTION_PATH}/bin/prism.js"
+        ARGS=()
+        [ -n "${CONFIG}" ] && ARGS+=(--config "${CONFIG}")
+        GATE=()
+        [ -n "${FAIL_ON}" ] && GATE+=(--fail-on "${FAIL_ON}")
+        [ -n "${MAX_SCORE}" ] && GATE+=(--max-score "${MAX_SCORE}")
+
+        # 1) human-readable summary in the job log (advisory, never fails)
+        node "${CLI}" "${DIFF}" --no-color "${ARGS[@]}" || true
+
+        # 2) machine SARIF for code scanning
+        node "${CLI}" "${DIFF}" -f sarif -o "${SARIF}" "${ARGS[@]}" || true
+        echo "sarif=${SARIF}" >> "$GITHUB_OUTPUT"
+
+        # 3) score + tier as step outputs (from JSON)
+        JSON="$(node "${CLI}" "${DIFF}" -f json "${ARGS[@]}" 2>/dev/null || echo '{}')"
+        SCORE="$(printf '%s' "$JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).score)}catch(e){console.log("")}})')"
+        TIER="$(printf '%s' "$JSON" | node -e 'let s="";process.stdin.on("data",d=>s+=d).on("end",()=>{try{console.log(JSON.parse(s).tier)}catch(e){console.log("")}})')"
+        echo "score=${SCORE}" >> "$GITHUB_OUTPUT"
+        echo "tier=${TIER}" >> "$GITHUB_OUTPUT"
+
+        # 4) the gate decides the verdict — but we DON'T fail yet, so SARIF still uploads
+        if node "${CLI}" "${DIFF}" -q "${ARGS[@]}" "${GATE[@]}"; then
+          echo "gate=passed" >> "$GITHUB_OUTPUT"
+        else
+          echo "gate=failed" >> "$GITHUB_OUTPUT"
+        fi
+
+    - name: Upload SARIF to code scanning
+      if: ${{ inputs.upload-sarif == 'true' && hashFiles(inputs.sarif-file) != '' }}
+      uses: github/codeql-action/upload-sarif@v3
+      with:
+        sarif_file: ${{ inputs.sarif-file }}
+        category: prism
+
+    - name: Enforce gate
+      shell: bash
+      env:
+        GATE: ${{ steps.scan.outputs.gate }}
+        SCORE: ${{ steps.scan.outputs.score }}
+        TIER: ${{ steps.scan.outputs.tier }}
+      run: |
+        echo "PRism risk: ${SCORE}/100 (${TIER}) — gate ${GATE}."
+        if [ "${GATE}" = "failed" ]; then
+          echo "::error title=PRism gate failed::Risk ${SCORE}/100 (${TIER}) breaches the configured policy."
+          exit 1
+        fi

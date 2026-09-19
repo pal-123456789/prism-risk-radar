@@ -1,0 +1,62 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "$id": "https://prism.dev/prism.schema.json",
+  "title": "PRism configuration",
+  "description": "Team review policy for PRism. Committed as .prism.json, it is read by the web app (rule tuning) and the CLI / GitHub Action (the CI gate). One file, one standard, no server.",
+  "type": "object",
+  "additionalProperties": false,
+  "properties": {
+    "$schema": { "type": "string" },
+    "version": { "type": "integer", "enum": [1], "description": "Config schema version." },
+    "disabled": {
+      "type": "object",
+      "description": "Rule ids to silence entirely. Map ruleId -> true.",
+      "additionalProperties": { "type": "boolean" },
+      "propertyNames": { "$ref": "#/definitions/ruleId" }
+    },
+    "severity": {
+      "type": "object",
+      "description": "Per-rule severity overrides. Map ruleId -> severity.",
+      "additionalProperties": { "$ref": "#/definitions/severity" },
+      "propertyNames": { "$ref": "#/definitions/ruleId" }
+    },
+    "gate": {
+      "type": "object",
+      "description": "CI policy. Ignored by the web app; used by the CLI/Action to choose an exit code.",
+      "additionalProperties": false,
+      "properties": {
+        "failOn": {
+          "$ref": "#/definitions/severity",
+          "description": "Fail the build if any signal is at or above this severity."
+        },
+        "maxScore": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 100,
+          "description": "Fail the build if the overall risk score exceeds this value."
+        }
+      }
+    }
+  },
+  "definitions": {
+    "severity": {
+      "type": "string",
+      "enum": ["info", "low", "medium", "high", "critical"]
+    },
+    "ruleId": {
+      "type": "string",
+      "enum": [
+        "aws-key", "basic-auth-url", "bidi-unicode", "binary-added", "bind-all",
+        "broad-except", "conflict-markers", "cors-wildcard", "debug-flag", "debug-print",
+        "dep-change", "ecb-mode", "entropy-secret", "eval-exec", "focused-test",
+        "generic-secret", "hardcoded-ip", "infra-change", "insecure-cookie", "insecure-deserialize",
+        "insecure-random", "js-scheme", "jwt", "large-file-churn", "lockfile-only-note",
+        "logic-without-tests", "long-line", "migration", "nosql-where", "open-redirect",
+        "path-traversal", "private-key", "prototype-pollution", "provider-token", "raw-html",
+        "secret-file", "shell-injection", "sql-concat", "ssrf", "stacktrace-print",
+        "template-injection", "test-deleted", "test-no-assert", "tls-off", "todo",
+        "weak-crypto", "zero-width"
+      ]
+    }
+  }
+}

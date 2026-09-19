@@ -1,0 +1,37 @@
+name: PR risk radar
+
+# Score every pull request with PRism and surface the findings in the
+# Security tab (code scanning). The diff is analyzed on the runner and never
+# leaves it — PRism has no network code. This is the offline promise, in CI.
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened]
+
+permissions:
+  contents: read
+  security-events: write   # required to upload SARIF to code scanning
+
+jobs:
+  prism:
+    name: PRism scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout (full history so we can diff against the base)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: Run PRism
+        uses: ./
+        with:
+          base-ref: ${{ github.event.pull_request.base.sha }}
+          # Policy comes from the repo's committed .prism.json (auto-discovered).
+          # To override inline instead, uncomment:
+          # fail-on: high
+          # max-score: 80
