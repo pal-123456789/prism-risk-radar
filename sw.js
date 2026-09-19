@@ -3,7 +3,7 @@
  * Cache-first for our own assets so the tool keeps working with no network
  * (which is also the privacy promise: it never needed the network anyway).
  */
-var CACHE = "prism-v7";
+var CACHE = "prism-v8";
 var SHELL = [
   "./",
   "./index.html",
@@ -56,6 +56,14 @@ function clean(res) {
 self.addEventListener("fetch", function (e) {
   var req = e.request;
   if (req.method !== "GET") return;
+
+  // Only manage our OWN origin. Cross-origin assets (e.g. Google Fonts) must
+  // pass straight through to the browser: if the SW re-fetches them, that
+  // fetch is governed by connect-src 'self' and gets blocked, and the offline
+  // fallback would hand back index.html (text/html) for a .css request — which
+  // the browser then refuses as a stylesheet. Let the page load them natively
+  // under style-src / font-src.
+  if (new URL(req.url).origin !== self.location.origin) return;
 
   // Navigations: network-first, so a fresh page can't be shadowed by a stale
   // cached shell; fall back to cache (then index.html) only when offline.
